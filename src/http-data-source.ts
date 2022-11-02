@@ -217,7 +217,7 @@ export abstract class HTTPDataSource<TContext = any> extends DataSource {
     path: string,
     requestOptions?: RequestOptions,
   ): Promise<Response<TResult>> {
-    return this.request<TResult>({
+    return this.requestHTTP<TResult>({
       headers: {},
       query: {},
       body: null,
@@ -234,7 +234,7 @@ export abstract class HTTPDataSource<TContext = any> extends DataSource {
     path: string,
     requestOptions?: RequestOptions,
   ): Promise<Response<TResult>> {
-    return this.request<TResult>({
+    return this.requestHTTP<TResult>({
       headers: {},
       query: {},
       body: null,
@@ -250,7 +250,7 @@ export abstract class HTTPDataSource<TContext = any> extends DataSource {
     path: string,
     requestOptions?: RequestOptions,
   ): Promise<Response<TResult>> {
-    return this.request<TResult>({
+    return this.requestHTTP<TResult>({
       headers: {},
       query: {},
       body: null,
@@ -266,7 +266,7 @@ export abstract class HTTPDataSource<TContext = any> extends DataSource {
     path: string,
     requestOptions?: RequestOptions,
   ): Promise<Response<TResult>> {
-    return this.request<TResult>({
+    return this.requestHTTP<TResult>({
       headers: {},
       query: {},
       body: null,
@@ -282,7 +282,7 @@ export abstract class HTTPDataSource<TContext = any> extends DataSource {
     path: string,
     requestOptions?: RequestOptions,
   ): Promise<Response<TResult>> {
-    return this.request<TResult>({
+    return this.requestHTTP<TResult>({
       headers: {},
       query: {},
       body: null,
@@ -398,7 +398,7 @@ export abstract class HTTPDataSource<TContext = any> extends DataSource {
     }
   }
 
-  private async request<TResult = unknown>(request: Request): Promise<Response<TResult>> {
+  private async requestHTTP<TResult = unknown>(request: Request): Promise<Response<TResult>> {
     if (Object.keys(request.query).length > 0) {
       request.path = request.path + '?' + this.buildQueryString(request.query)
     }
