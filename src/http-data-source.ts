@@ -1,6 +1,9 @@
 import { DataSource, DataSourceConfig } from 'apollo-datasource'
 import { Pool } from 'undici'
-import { STATUS_CODES } from 'http'
+import fetch from 'node-fetch'
+import { BodyMixin } from 'undici/types/dispatcher'
+import { AbortSignal as NodeFetchAbortSignal } from 'node-fetch/externals'
+import { IncomingHttpHeaders, STATUS_CODES } from 'http'
 import QuickLRU from '@alloc/quick-lru'
 
 import { createUnzip, createBrotliDecompress } from 'zlib'
@@ -11,6 +14,7 @@ import { toApolloError } from 'apollo-server-errors'
 import { EventEmitter } from 'stream'
 import { Logger } from 'apollo-server-types'
 import { URLSearchParams } from 'url'
+import { Readable } from 'stream'
 
 type AbortSignal = unknown
 
@@ -217,7 +221,7 @@ export abstract class HTTPDataSource<TContext = any> extends DataSource {
     path: string,
     requestOptions?: RequestOptions,
   ): Promise<Response<TResult>> {
-    return this.request<TResult>({
+    return this.requestHTTP<TResult>({
       headers: {},
       query: {},
       body: null,
@@ -234,7 +238,7 @@ export abstract class HTTPDataSource<TContext = any> extends DataSource {
     path: string,
     requestOptions?: RequestOptions,
   ): Promise<Response<TResult>> {
-    return this.request<TResult>({
+    return this.requestHTTP<TResult>({
       headers: {},
       query: {},
       body: null,
@@ -250,7 +254,7 @@ export abstract class HTTPDataSource<TContext = any> extends DataSource {
     path: string,
     requestOptions?: RequestOptions,
   ): Promise<Response<TResult>> {
-    return this.request<TResult>({
+    return this.requestHTTP<TResult>({
       headers: {},
       query: {},
       body: null,
@@ -266,7 +270,7 @@ export abstract class HTTPDataSource<TContext = any> extends DataSource {
     path: string,
     requestOptions?: RequestOptions,
   ): Promise<Response<TResult>> {
-    return this.request<TResult>({
+    return this.requestHTTP<TResult>({
       headers: {},
       query: {},
       body: null,
@@ -282,7 +286,7 @@ export abstract class HTTPDataSource<TContext = any> extends DataSource {
     path: string,
     requestOptions?: RequestOptions,
   ): Promise<Response<TResult>> {
-    return this.request<TResult>({
+    return this.requestHTTP<TResult>({
       headers: {},
       query: {},
       body: null,
@@ -318,7 +322,39 @@ export abstract class HTTPDataSource<TContext = any> extends DataSource {
         body: request.body as string,
       }
 
-      const responseData = await this.pool.request(requestOptions)
+      let responseData: Dispatcher.ResponseData
+      // use node-fetch if in jest
+      // https://github.com/nodejs/undici/issues/1634
+      if (process.env.JEST_WORKER_ID) {
+        type undiciHeadersMap = {
+          [key: string]: string
+        }
+        const requestHeadersMap = {} as undiciHeadersMap
+        for (const key in request.headers) {
+          requestHeadersMap[key] = request.headers[key] ?? ''
+        }
+        const nodeFetchResponse = await fetch(this.baseURL + requestOptions.path, {
+          body: request.body as string,
+          method: request.method,
+          headers: requestHeadersMap,
+          signal: request.signal as NodeFetchAbortSignal,
+        })
+        const responseHeadersMap = {} as IncomingHttpHeaders
+        nodeFetchResponse.headers.forEach((val, key) => {
+          responseHeadersMap[key] = val
+        })
+        responseData = {
+          body: nodeFetchResponse.body as Readable & BodyMixin,
+          statusCode: nodeFetchResponse.status,
+          headers: responseHeadersMap,
+          // TODO: ????
+          opaque: null,
+          context: {},
+          trailers: {},
+        }
+      } else {
+        responseData = await this.pool.request(requestOptions)
+      }
       const body = responseData.body
       const headers = responseData.headers
 
@@ -398,7 +434,7 @@ export abstract class HTTPDataSource<TContext = any> extends DataSource {
     }
   }
 
-  private async request<TResult = unknown>(request: Request): Promise<Response<TResult>> {
+  private async requestHTTP<TResult = unknown>(request: Request): Promise<Response<TResult>> {
     if (Object.keys(request.query).length > 0) {
       request.path = request.path + '?' + this.buildQueryString(request.query)
     }
